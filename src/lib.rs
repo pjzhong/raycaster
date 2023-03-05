@@ -106,6 +106,9 @@ impl State {
         // regardless of how the angle is.5
         let up = fabsf(floorf(angle / PI) % 2.0) != 0.0;
 
+        //first_y and first_x mean how far from player to next grid intersection
+        // if player is in the center of grid(0.5, 0.5) and the angle is 45, then the result （0.5，0.5）；
+        // the names if very confusing
         let first_y = if up {
             ceilf(self.player_y) - self.player_y
         } else {
@@ -115,6 +118,7 @@ impl State {
         //y is flipped???
         let first_x = -first_y / tanf(angle);
 
+        //each move
         let dy = if up { 1.0 } else { -1.0 };
         let dx = -dy / tanf(angle);
 
@@ -228,7 +232,8 @@ impl State {
             let h_dist = self.horizontal_insersection(angle);
             let v_dist = self.vertical_insersection(angle);
 
-            *wall = (WALL_HEIGHT / f32::min(h_dist, v_dist)) as i32;
+            *wall =
+                (WALL_HEIGHT / (f32::min(h_dist, v_dist) * cosf(angle - self.player_angle))) as i32;
         }
 
         walls
