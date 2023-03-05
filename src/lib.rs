@@ -4,6 +4,7 @@ use core::f32::consts::{FRAC_PI_2, PI};
 use core::{arch::wasm32, panic::PanicInfo};
 use libm::{ceilf, cosf, fabsf, floorf, sinf, sqrtf, tanf};
 
+const DRAW_COLORS: *mut u16 = 0x14 as *mut u16;
 const GAMEPAD1: *const u8 = 0x16 as *const u8;
 
 const BUTTON_LEFT: u8 = 16; // 00010000
@@ -58,8 +59,16 @@ unsafe fn update() {
         *GAMEPAD1 & BUTTON_RIGHT != 0,
     );
 
-    for (x, wall_height) in STATE.get_view().iter().enumerate() {
-        vline(x as i32, 80 - (wall_height / 2), *wall_height as u32)
+    for (x, wall) in STATE.get_view().iter().enumerate() {
+        let (height, shadow) = wall;
+
+        if *shadow {
+            *DRAW_COLORS = 0x2;
+        } else {
+            *DRAW_COLORS = 0x3;
+        }
+
+        vline(x as i32, 80 - (height / 2), *height as u32)
     }
 }
 
@@ -212,14 +221,14 @@ impl State {
         distance(next_x, next_y)
     }
 
-    pub fn get_view(&self) -> [i32; 160] {
+    pub fn get_view(&self) -> [(i32, bool); 160] {
         // The player's FOV is split in half by their viewing angle.
         // In order to get the ray's first angle we must
         // add half the FOV to the player's angle to get
         // the edge of the player's FOV.
         let starting_angle = self.player_angle + HALF_FOV;
 
-        let mut walls = [0; 160];
+        let mut walls = [(0, false); 160];
 
         for (idx, wall) in walls.iter_mut().enumerate() {
             // 'idx' is what number ray we are, 'wall' is a mutable reference to a value in
@@ -232,8 +241,16 @@ impl State {
             let h_dist = self.horizontal_insersection(angle);
             let v_dist = self.vertical_insersection(angle);
 
-            *wall =
-                (WALL_HEIGHT / (f32::min(h_dist, v_dist) * cosf(angle - self.player_angle))) as i32;
+            let (min_dist, shadow) = if h_dist < v_dist {
+                (h_dist, false)
+            } else {
+                (v_dist, true)
+            };
+
+            *wall = (
+                (WALL_HEIGHT / (min_dist * cosf(angle - self.player_angle))) as i32,
+                shadow,
+            );
         }
 
         walls
